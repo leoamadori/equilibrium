@@ -1,0 +1,40 @@
+{
+  "name": "equilibrium",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "cap:sync": "npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor-community/keep-awake": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/local-notifications": "^7.0.0",
+    "@capacitor/preferences": "^7.0.0",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@eslint/js": "^9.20.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.20.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.15.0",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.24.0",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.5"
+  }
+}
