@@ -6,6 +6,7 @@ __pycache__/
 *.jks
 *.keystore
 keystore.properties
+keystore_base64.txt
 android/app/build/
 android/.gradle/
 android/local.properties

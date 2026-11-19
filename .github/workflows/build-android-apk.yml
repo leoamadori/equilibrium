@@ -36,24 +36,22 @@ jobs:
           npm run build
           npx cap sync android
 
-      - name: Decode Android Keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/release.keystore
-
       - name: Build Android APK
         env:
-          ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && '../release.keystore' || '' }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: |
           chmod +x android/gradlew
-          cd android
-          if [ -n "$ANDROID_KEYSTORE_PATH" ]; then
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release.keystore
+            export ANDROID_KEYSTORE_PATH="../release.keystore"
+            cd android
             ./gradlew assembleRelease
           else
+            cd android
             ./gradlew assembleDebug
           fi
 
