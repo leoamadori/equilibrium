@@ -50,19 +50,19 @@ jobs:
             export ANDROID_KEYSTORE_PATH="../release.keystore"
             cd android
             ./gradlew assembleRelease
+            cp app/build/outputs/apk/release/app-release.apk ../Equilibrium.apk
           else
             cd android
             ./gradlew assembleDebug
+            cp app/build/outputs/apk/debug/app-debug.apk ../Equilibrium.apk
           fi
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: equilibrium-android-apk
-          path: android/app/build/outputs/apk/*/*.apk
-
-      - name: Attach APK to GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish direct Equilibrium.apk to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/*/*.apk
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && format('Equilibrium {0}', github.ref_name) || 'Equilibrium — Ultima versione APK' }}
+          body: |
+            Scarica direttamente **`Equilibrium.apk`** qui sotto (nessun file ZIP) e installalo sul tuo dispositivo Android.
+          files: Equilibrium.apk
+          make_latest: true
