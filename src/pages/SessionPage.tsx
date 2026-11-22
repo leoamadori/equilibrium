@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { EXERCISES } from '../data/exercises';
-import { isNativeAndroid, wakeLockAdapter } from '../platform/adapter';
+import {
+  isNativeAndroid,
+  orientationAdapter,
+  wakeLockAdapter,
+} from '../platform/adapter';
 import { audioCoach } from '../services/audioCoach';
 import { beepEngine } from '../services/beepEngine';
 import { useCountdown, useStopwatch } from '../hooks/useTimers';
+import type { TrainingLevel } from '../types/exercise';
 import type { AudioMode, SessionRecord } from '../types/storage';
 import type { RouteName } from '../router';
 import { formatDuration } from '../utils/stats';
@@ -12,6 +17,8 @@ import { TvModeView } from '../components/TvModeView';
 
 interface SessionPageProps {
   defaultAudioMode: AudioMode;
+  defaultTrainingLevel: TrainingLevel;
+  onChangeTrainingLevel: (level: TrainingLevel) => void;
   onSaveSession: (record: SessionRecord) => void;
   onNavigate: (route: RouteName) => void;
   onTvModeChange: (active: boolean) => void;
@@ -22,6 +29,8 @@ type LevelTab = 'base' | 'easy' | 'advanced';
 
 export function SessionPage({
   defaultAudioMode,
+  defaultTrainingLevel,
+  onChangeTrainingLevel,
   onSaveSession,
   onNavigate,
   onTvModeChange,
@@ -29,6 +38,7 @@ export function SessionPage({
   const [phase, setPhase] = useState<SessionPhase>('intro');
   const [index, setIndex] = useState(0);
   const [audioMode, setAudioMode] = useState<AudioMode>(defaultAudioMode);
+  const [trainingLevel, setTrainingLevel] = useState<TrainingLevel>(defaultTrainingLevel);
   const [levelTab, setLevelTab] = useState<LevelTab>('base');
   const [tvMode, setTvMode] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -41,17 +51,28 @@ export function SessionPage({
   const stopwatch = useStopwatch(false);
   const countdown = useCountdown();
   const exercise = EXERCISES[index];
+  const levelCfg = exercise.levels[trainingLevel];
 
   useEffect(() => {
     setAudioMode(defaultAudioMode);
   }, [defaultAudioMode]);
 
   useEffect(() => {
+    setTrainingLevel(defaultTrainingLevel);
+  }, [defaultTrainingLevel]);
+
+  useEffect(() => {
     return audioCoach.subscribe(setAudioPlaying);
   }, []);
 
   useEffect(() => {
-    onTvModeChange(tvMode && phase === 'active');
+    const activeTv = tvMode && phase === 'active';
+    onTvModeChange(activeTv);
+    if (activeTv) {
+      void orientationAdapter.lockLandscape();
+    } else {
+      void orientationAdapter.unlock();
+    }
   }, [tvMode, phase, onTvModeChange]);
 
   // Wake Lock active throughout active session (and especially TV Mode)
@@ -65,24 +86,23 @@ export function SessionPage({
     return undefined;
   }, [phase]);
 
-  // Pause stopwatch, countdown, and audio when app/tab goes hidden
+  // Pause voice when tab/app goes hidden (keep running countdown alive so screen can wake on end)
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && phase === 'active') {
-        stopwatch.pause();
-        countdown.pause();
         audioCoach.pause();
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  }, [phase, stopwatch, countdown]);
+  }, [phase]);
 
-  // Cleanup audio on unmount
+  // Cleanup audio and orientation on unmount
   useEffect(() => {
     return () => {
       audioCoach.stop();
       onTvModeChange(false);
+      void orientationAdapter.unlock();
     };
   }, [onTvModeChange]);
 
@@ -100,13 +120,18 @@ export function SessionPage({
     [],
   );
 
+  const handleSelectLevel = (level: TrainingLevel) => {
+    setTrainingLevel(level);
+    onChangeTrainingLevel(level);
+  };
+
   const handleStartSession = () => {
     audioCoach.unlock();
     beepEngine.unlock();
     startedAtRef.current = new Date().toISOString();
     visitedSetRef.current = new Set([0]);
     setIndex(0);
-    setLevelTab('base');
+    setLevelTab(trainingLevel === 'facile' ? 'easy' : 'base');
     countdown.clear();
     setPhase('active');
     stopwatch.reset();
@@ -117,7 +142,7 @@ export function SessionPage({
   const finishSession = useCallback(
     (markAllDone = false) => {
       stopwatch.pause();
-      countdown.pause();
+      countdown.clear();
       audioCoach.stop();
       setTvMode(false);
 
@@ -154,12 +179,22 @@ export function SessionPage({
       }
       visitedSetRef.current.add(nextIndex);
       setIndex(nextIndex);
-      setLevelTab('base');
+      setLevelTab(trainingLevel === 'facile' ? 'easy' : 'base');
       countdown.clear();
       playForExercise(nextIndex, audioMode);
     },
-    [audioMode, countdown, finishSession, playForExercise],
+    [audioMode, countdown, finishSession, playForExercise, trainingLevel],
   );
+
+  const startWorkTimer = useCallback(() => {
+    if (levelCfg.workSec) {
+      countdown.startPreset(levelCfg.workSec, `Esercizio ${levelCfg.workSec}s`, 'work');
+    }
+  }, [countdown, levelCfg.workSec]);
+
+  const startRestTimer = useCallback(() => {
+    countdown.startPreset(levelCfg.restSec, `Pausa ${levelCfg.restSec}s`, 'rest');
+  }, [countdown, levelCfg.restSec]);
 
   // Android hardware back button guard during active session
   useEffect(() => {
@@ -204,14 +239,14 @@ export function SessionPage({
       } else if (e.code === 'Space') {
         if (target?.tagName === 'BUTTON') return;
         e.preventDefault();
-        if (countdown.activeLabel) {
+        if (countdown.activeLabel && !countdown.completed) {
           countdown.toggle();
-        } else if (exercise.timerPresets[0]) {
-          countdown.startPreset(
-            exercise.timerPresets[0].durationSec,
-            exercise.timerPresets[0].label,
-            exercise.timerPresets[0].kind,
-          );
+        } else if (countdown.completed && countdown.activeKind === 'work') {
+          startRestTimer();
+        } else if (levelCfg.workSec) {
+          startWorkTimer();
+        } else {
+          startRestTimer();
         }
       } else if (e.code === 'KeyR') {
         e.preventDefault();
@@ -223,7 +258,17 @@ export function SessionPage({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [phase, index, audioMode, countdown, exercise, goToIndex, playForExercise]);
+  }, [
+    phase,
+    index,
+    audioMode,
+    countdown,
+    levelCfg.workSec,
+    goToIndex,
+    playForExercise,
+    startRestTimer,
+    startWorkTimer,
+  ]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0]?.clientX ?? null;
@@ -256,6 +301,32 @@ export function SessionPage({
           </div>
 
           <div className="form-group">
+            <label className="form-label">Scegli il livello della sessione</label>
+            <div className="level-choice-grid">
+              <button
+                type="button"
+                className={`level-choice-card ${
+                  trainingLevel === 'facile' ? 'level-choice-active' : ''
+                }`}
+                onClick={() => handleSelectLevel('facile')}
+              >
+                <strong>Facile</strong>
+                <span>Tenute 20s • Pause 45–60s • Meno serie</span>
+              </button>
+              <button
+                type="button"
+                className={`level-choice-card ${
+                  trainingLevel === 'allenato' ? 'level-choice-active' : ''
+                }`}
+                onClick={() => handleSelectLevel('allenato')}
+              >
+                <strong>Allenato</strong>
+                <span>Tenute 30s • Pause 30–45s • Serie complete</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="form-group">
             <label className="form-label">Voce guida allenatore</label>
             <div className="segmented">
               {(['short', 'full', 'off'] as AudioMode[]).map((mode) => (
@@ -284,9 +355,7 @@ export function SessionPage({
       <section className="page session-summary">
         <div className="card">
           <span className="badge-num">SESSIONE SALVATA</span>
-          <h1>
-            {savedSummary.completed ? 'Circuito completato' : 'Sessione terminata'}
-          </h1>
+          <h1>{savedSummary.completed ? 'Circuito completato' : 'Sessione terminata'}</h1>
           <div className="summary-metrics">
             <div>
               <strong>{formatDuration(savedSummary.durationSec)}</strong>
@@ -324,11 +393,15 @@ export function SessionPage({
     return (
       <TvModeView
         exercise={exercise}
+        levelConfig={levelCfg}
+        trainingLevel={trainingLevel}
         index={index}
         total={EXERCISES.length}
         sessionElapsedSec={stopwatch.elapsedSec}
         countdown={countdown}
         audioPlaying={audioPlaying}
+        onStartWork={startWorkTimer}
+        onStartRest={startRestTimer}
         onReplayAudio={() => playForExercise(index, audioMode, true)}
         onPrev={() => goToIndex(index - 1)}
         onNext={() => goToIndex(index + 1)}
@@ -345,15 +418,11 @@ export function SessionPage({
     >
       <div className="session-topbar">
         <span className="badge-num">
-          Esercizio {index + 1} di {EXERCISES.length}
+          Es. {index + 1}/{EXERCISES.length} • {trainingLevel === 'facile' ? 'Facile' : 'Allenato'}
         </span>
-        <div className="stopwatch-pill">
+        <div className="stopwatch-pill" title="Durata totale sessione per le statistiche">
           <span>⏱ {formatDuration(stopwatch.elapsedSec)}</span>
-          <button
-            type="button"
-            className="btn-link"
-            onClick={stopwatch.toggle}
-          >
+          <button type="button" className="btn-link" onClick={stopwatch.toggle}>
             {stopwatch.running ? 'Pausa' : 'Riprendi'}
           </button>
         </div>
@@ -369,7 +438,7 @@ export function SessionPage({
       <div className="card session-card">
         <div className="session-heading">
           <h1>{exercise.title}</h1>
-          <p className="muted-text">{exercise.subtitle}</p>
+          <p className="level-summary-line">{levelCfg.summary}</p>
         </div>
 
         <div className="video-container">
@@ -435,78 +504,100 @@ export function SessionPage({
                 </span>
               )}
               <span className="timer-title">
-                {countdown.activeLabel ?? `Timer esercizio ${exercise.number}`}
+                {countdown.completed
+                  ? `${countdown.activeLabel} terminato!`
+                  : countdown.activeLabel ?? `Timer esercizio ${exercise.number}`}
               </span>
             </div>
             <span className="timer-readout">
-              {countdown.activeLabel ? formatDuration(countdown.remainingSec) : '00:00'}
+              {countdown.activeLabel
+                ? formatDuration(countdown.remainingSec)
+                : formatDuration(levelCfg.workSec ?? levelCfg.restSec)}
             </span>
           </div>
 
-          {exercise.timerPresets.some((p) => p.kind === 'work') && (
-            <div className="timer-group">
-              <span className="timer-group-label">Esercizio:</span>
-              <div className="timer-presets">
-                {exercise.timerPresets
-                  .filter((p) => p.kind === 'work')
-                  .map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      className={`chip chip-work ${
-                        countdown.activeLabel === preset.label ? 'chip-work-active' : ''
-                      }`}
-                      onClick={() =>
-                        countdown.startPreset(preset.durationSec, preset.label, preset.kind)
-                      }
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          <div className="timer-group">
-            <span className="timer-group-label">Pausa:</span>
-            <div className="timer-presets">
-              {exercise.timerPresets
-                .filter((p) => p.kind === 'rest')
-                .map((preset) => (
+          {countdown.completed ? (
+            <div className="timer-next-step">
+              {countdown.activeKind === 'work' ? (
+                <>
                   <button
-                    key={preset.id}
                     type="button"
-                    className={`chip chip-rest ${
-                      countdown.activeLabel === preset.label ? 'chip-rest-active' : ''
-                    }`}
-                    onClick={() =>
-                      countdown.startPreset(preset.durationSec, preset.label, preset.kind)
-                    }
+                    className="btn btn-rest-cta btn-lg"
+                    onClick={startRestTimer}
                   >
-                    {preset.label}
+                    Avvia Pausa ({levelCfg.restSec}s)
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => goToIndex(index + 1)}
+                  >
+                    {index + 1 < EXERCISES.length ? 'Prossimo Esercizio ▶' : 'Completa ✓'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {levelCfg.workSec && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-lg"
+                      onClick={startWorkTimer}
+                    >
+                      Ripeti Esercizio ({levelCfg.workSec}s)
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-lg"
+                    onClick={() => goToIndex(index + 1)}
+                  >
+                    {index + 1 < EXERCISES.length ? 'Prossimo Esercizio ▶' : 'Completa ✓'}
+                  </button>
+                </>
+              )}
             </div>
-          </div>
-
-          {countdown.activeLabel && (
-            <div className="timer-controls">
-              <button type="button" className="btn btn-secondary btn-sm" onClick={countdown.toggle}>
-                {countdown.running ? 'Pausa timer' : 'Riprendi timer'}
+          ) : (
+            <div className="timer-single-actions">
+              {levelCfg.workSec && (
+                <button
+                  type="button"
+                  className={`btn btn-work-action ${
+                    countdown.activeKind === 'work' ? 'btn-work-action-active' : ''
+                  }`}
+                  onClick={startWorkTimer}
+                >
+                  ▶ Esercizio ({levelCfg.workSec}s)
+                </button>
+              )}
+              <button
+                type="button"
+                className={`btn btn-rest-action ${
+                  countdown.activeKind === 'rest' ? 'btn-rest-action-active' : ''
+                }`}
+                onClick={startRestTimer}
+              >
+                ⏸ Pausa ({levelCfg.restSec}s)
               </button>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={countdown.reset}>
-                Reset
-              </button>
+              {countdown.activeLabel && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={countdown.toggle}
+                  >
+                    {countdown.running ? 'Ferma' : 'Riprendi'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={countdown.reset}
+                  >
+                    Reset
+                  </button>
+                </>
+              )}
             </div>
           )}
-        </div>
-
-        <div className="load-chips">
-          {exercise.loadParams.map((p) => (
-            <div key={p.label} className="load-chip">
-              <strong>{p.label}:</strong> {p.value}
-            </div>
-          ))}
         </div>
 
         <div className="level-tabs">

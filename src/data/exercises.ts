@@ -21,9 +21,9 @@ export const EXERCISES: Exercise[] = [
       'Solleva il piede opposto flettendo il ginocchio a 90° e mantieni il bacino perfettamente orizzontale.',
     ],
     tvPoints: [
-      '3 serie × 20–30 s per gamba • Recupero 30–45 s',
       'Ginocchio portante leggermente sbloccato',
-      'Bacino orizzontale e respiro regolare',
+      'Bacino orizzontale e sguardo fisso davanti',
+      'Respiro regolare senza apnea',
     ],
     targetMuscles:
       'Caviglia, tibiale anteriore, muscoli peronieri, medio e piccolo gluteo, core addominale.',
@@ -41,12 +41,18 @@ export const EXERCISES: Exercise[] = [
     videoPath: './media/videos/01_stazione_monopodalica.mp4',
     audioFullPath: './media/audio/01_full.mp3',
     audioShortPath: './media/audio/01_short.mp3',
-    timerPresets: [
-      { id: 'hold-20', label: 'Esercizio 20s', durationSec: 20, kind: 'work' },
-      { id: 'hold-30', label: 'Esercizio 30s', durationSec: 30, kind: 'work' },
-      { id: 'rest-30', label: 'Pausa 30s', durationSec: 30, kind: 'rest' },
-      { id: 'rest-45', label: 'Pausa 45s', durationSec: 45, kind: 'rest' },
-    ],
+    levels: {
+      facile: {
+        summary: '3 serie × 20 s per gamba • Pausa 45 s',
+        workSec: 20,
+        restSec: 45,
+      },
+      allenato: {
+        summary: '3 serie × 30 s per gamba • Pausa 30 s',
+        workSec: 30,
+        restSec: 30,
+      },
+    },
   },
   {
     id: '02',
@@ -68,9 +74,9 @@ export const EXERCISES: Exercise[] = [
       'Fai una pausa di 1–2 secondi ad ogni singolo passo prima di avanzare nuovamente.',
     ],
     tvPoints: [
-      'Statica: 3 × 20–30 s • Dinamica: 2–3 × 10–15 passi',
       'Tallone anteriore a contatto con la punta posteriore',
-      'Braccia a croce, sguardo orizzontale (non sui piedi)',
+      'Braccia a croce per bilanciare',
+      'Sguardo orizzontale (non sui piedi)',
     ],
     targetMuscles:
       'Muscoli intrinseci del piede, complessi stabilizzatori di caviglia e ginocchio, canali vestibolari.',
@@ -87,11 +93,18 @@ export const EXERCISES: Exercise[] = [
     videoPath: './media/videos/02_camminata_tandem.mp4',
     audioFullPath: './media/audio/02_full.mp3',
     audioShortPath: './media/audio/02_short.mp3',
-    timerPresets: [
-      { id: 'hold-20', label: 'Esercizio 20s', durationSec: 20, kind: 'work' },
-      { id: 'hold-30', label: 'Esercizio 30s', durationSec: 30, kind: 'work' },
-      { id: 'rest-45', label: 'Pausa 45s', durationSec: 45, kind: 'rest' },
-    ],
+    levels: {
+      facile: {
+        summary: 'Statica 3 × 20 s oppure 2 × 10 passi • Pausa 45 s',
+        workSec: 20,
+        restSec: 45,
+      },
+      allenato: {
+        summary: 'Statica 3 × 30 s oppure 3 × 15 passi • Pausa 45 s',
+        workSec: 30,
+        restSec: 45,
+      },
+    },
   },
   {
     id: '03',
@@ -113,9 +126,9 @@ export const EXERCISES: Exercise[] = [
       'Riscendi lentamente verso la sedia impiegando 3–4 secondi, sfiorando la seduta prima di risalire o sederti senza tonfi.',
     ],
     tvPoints: [
-      '2–3 serie × 8–12 ripetizioni lente • Recupero 60 s',
       'Braccia incrociate sul petto, spinta sui talloni',
-      'Discesa controllata di 3–4 secondi senza tonfi',
+      'Ginocchia allineate (non chiuderle)',
+      'Discesa lenta 3–4 secondi senza tonfi',
     ],
     targetMuscles:
       'Quadricipiti, grande gluteo, muscoli ischiocrurali, erettori spinali.',
@@ -133,9 +146,16 @@ export const EXERCISES: Exercise[] = [
     videoPath: './media/videos/03_seduto_in_piedi.mp4',
     audioFullPath: './media/audio/03_full.mp3',
     audioShortPath: './media/audio/03_short.mp3',
-    timerPresets: [
-      { id: 'rest-60', label: 'Pausa 60s', durationSec: 60, kind: 'rest' },
-    ],
+    levels: {
+      facile: {
+        summary: '2 serie × 8 ripetizioni lente • Pausa 60 s',
+        restSec: 60,
+      },
+      allenato: {
+        summary: '3 serie × 12 ripetizioni lente • Pausa 60 s',
+        restSec: 60,
+      },
+    },
   },
   {
     id: '04',
@@ -157,9 +177,9 @@ export const EXERCISES: Exercise[] = [
       'Ripeti invertendo la gamba di sostegno (la gamba destra al centro toccherà le posizioni ore 12, 9 e 6).',
     ],
     tvPoints: [
-      '2 serie × 1–2 giri completi per lato • Recupero 45–60 s',
       'Peso sempre sulla gamba portante (ginocchio morbido)',
       'Sfiora ore 12, lato (3 o 9) e ore 6 senza appoggiare',
+      'Busto dritto e mani sui fianchi',
     ],
     targetMuscles:
       "Stabilizzatori della caviglia, quadricipite e flessori d'anca, muscoli glutei della gamba di terra.",
@@ -176,10 +196,16 @@ export const EXERCISES: Exercise[] = [
     videoPath: './media/videos/04_esercizio_orologio.mp4',
     audioFullPath: './media/audio/04_full.mp3',
     audioShortPath: './media/audio/04_short.mp3',
-    timerPresets: [
-      { id: 'rest-45', label: 'Pausa 45s', durationSec: 45, kind: 'rest' },
-      { id: 'rest-60', label: 'Pausa 60s', durationSec: 60, kind: 'rest' },
-    ],
+    levels: {
+      facile: {
+        summary: '2 serie × 1 giro per lato • Pausa 60 s',
+        restSec: 60,
+      },
+      allenato: {
+        summary: '2 serie × 2 giri per lato • Pausa 45 s',
+        restSec: 45,
+      },
+    },
   },
   {
     id: '05',
@@ -201,9 +227,9 @@ export const EXERCISES: Exercise[] = [
       "Immediatamente dopo, sposta il peso sui talloni e solleva le punte dei piedi verso l'alto (dorsiflessione) per 2 secondi prima di tornare a terra.",
     ],
     tvPoints: [
-      '2–3 serie × 10–15 rip. complete • Recupero 30–45 s',
       'Sali sulle punte (2–3 s), scendi lento senza rimbalzare',
-      'Solleva le punte sui talloni (2 s) tenendo il corpo dritto',
+      'Solleva le punte sui talloni per 2 secondi',
+      'Mantieni il corpo allineato vicino a un appoggio',
     ],
     targetMuscles:
       'Complesso gastrocnemio-soleo (polpacci), muscolo tibiale anteriore, dita dei piedi e fascia plantare.',
@@ -220,10 +246,16 @@ export const EXERCISES: Exercise[] = [
     videoPath: './media/videos/05_talloni_e_punte.mp4',
     audioFullPath: './media/audio/05_full.mp3',
     audioShortPath: './media/audio/05_short.mp3',
-    timerPresets: [
-      { id: 'rest-30', label: 'Pausa 30s', durationSec: 30, kind: 'rest' },
-      { id: 'rest-45', label: 'Pausa 45s', durationSec: 45, kind: 'rest' },
-    ],
+    levels: {
+      facile: {
+        summary: '2 serie × 10 ripetizioni complete • Pausa 45 s',
+        restSec: 45,
+      },
+      allenato: {
+        summary: '3 serie × 15 ripetizioni complete • Pausa 30 s',
+        restSec: 30,
+      },
+    },
   },
   {
     id: '06',
@@ -244,9 +276,9 @@ export const EXERCISES: Exercise[] = [
       'Mantieni la posizione per 2–3 secondi e torna lentamente alla base senza far toccare il pavimento.',
     ],
     tvPoints: [
-      '2–3 serie × 10 passi o 10 abduzioni/lato • Recupero 45 s',
-      'Punta del piede rivolta in avanti (no extrarotazione)',
-      'Busto verticale, tenuta 2–3 s in alto',
+      'Punta del piede rivolta in avanti (non verso l’alto)',
+      'Busto verticale senza inclinarti di lato',
+      'Tenuta 2–3 s in alto, discesa controllata',
     ],
     targetMuscles:
       'Medio gluteo, piccolo gluteo, tensore della fascia lata, stabilizzatori laterali della colonna.',
@@ -255,7 +287,7 @@ export const EXERCISES: Exercise[] = [
       "Ruotare la punta del piede all'infuori (extrarotazione d'anca anziché abduzione pura).",
     ],
     easyLevel:
-      'Eseguire l\'abduzione tenendosi con entrambe le mani a un tavolo.',
+      "Eseguire l'abduzione tenendosi con entrambe le mani a un tavolo.",
     advancedLevel:
       'Mantenere la gamba abdotta per 5 secondi o posizionare una banda elastica leggera attorno alle caviglie.',
     pdfPage: 17,
@@ -263,9 +295,16 @@ export const EXERCISES: Exercise[] = [
     videoPath: './media/videos/06_camminata_laterale_abduzioni.mp4',
     audioFullPath: './media/audio/06_full.mp3',
     audioShortPath: './media/audio/06_short.mp3',
-    timerPresets: [
-      { id: 'rest-45', label: 'Pausa 45s', durationSec: 45, kind: 'rest' },
-    ],
+    levels: {
+      facile: {
+        summary: '2 serie × 10 passi o 10 aperture/lato • Pausa 45 s',
+        restSec: 45,
+      },
+      allenato: {
+        summary: '3 serie × 10 passi o 10 aperture/lato • Pausa 45 s',
+        restSec: 45,
+      },
+    },
   },
 ];
 

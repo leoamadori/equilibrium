@@ -1,3 +1,5 @@
+import type { TrainingLevel } from './exercise';
+
 export type AudioMode = 'full' | 'short' | 'off';
 
 export interface SessionRecord {
@@ -20,6 +22,7 @@ export interface WeeklyReminderConfig {
 
 export interface AppSettings {
   audioMode: AudioMode;
+  trainingLevel: TrainingLevel;
 }
 
 export interface PersistedState {
@@ -33,6 +36,7 @@ export const DEFAULT_PERSISTED_STATE: PersistedState = {
   schemaVersion: 1,
   settings: {
     audioMode: 'short',
+    trainingLevel: 'facile',
   },
   sessions: [],
   reminder: {

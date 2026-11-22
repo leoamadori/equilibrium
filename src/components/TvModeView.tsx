@@ -1,14 +1,18 @@
-import type { Exercise } from '../types/exercise';
+import type { Exercise, ExerciseLevelConfig, TrainingLevel } from '../types/exercise';
 import type { CountdownState } from '../hooks/useTimers';
 import { formatDuration } from '../utils/stats';
 
 interface TvModeViewProps {
   exercise: Exercise;
+  levelConfig: ExerciseLevelConfig;
+  trainingLevel: TrainingLevel;
   index: number;
   total: number;
   sessionElapsedSec: number;
   countdown: CountdownState;
   audioPlaying: boolean;
+  onStartWork: () => void;
+  onStartRest: () => void;
   onReplayAudio: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -17,11 +21,15 @@ interface TvModeViewProps {
 
 export function TvModeView({
   exercise,
+  levelConfig,
+  trainingLevel,
   index,
   total,
   sessionElapsedSec,
   countdown,
   audioPlaying,
+  onStartWork,
+  onStartRest,
   onReplayAudio,
   onPrev,
   onNext,
@@ -30,12 +38,14 @@ export function TvModeView({
   return (
     <div className="tv-overlay" role="region" aria-label="Modalità TV">
       <div className="tv-topbar">
-        <span className="tv-badge">
-          ESERCIZIO {index + 1} / {total}
-        </span>
-        <span className="tv-session-time">Sessione: {formatDuration(sessionElapsedSec)}</span>
-        <button type="button" className="btn btn-tv-exit" onClick={onExitTv}>
-          Esci da Modalità TV
+        <div className="tv-topbar-left">
+          <span className="tv-badge">
+            ES. {index + 1}/{total} • {trainingLevel === 'facile' ? 'FACILE' : 'ALLENATO'}
+          </span>
+          <span className="tv-session-time">Sessione: {formatDuration(sessionElapsedSec)}</span>
+        </div>
+        <button type="button" className="btn btn-tv-exit btn-sm" onClick={onExitTv}>
+          Esci TV
         </button>
       </div>
 
@@ -54,8 +64,10 @@ export function TvModeView({
         </div>
 
         <div className="tv-info-col">
-          <h1 className="tv-title">{exercise.title}</h1>
-          <p className="tv-subtitle">{exercise.subtitle}</p>
+          <div className="tv-header-block">
+            <h1 className="tv-title">{exercise.title}</h1>
+            <p className="tv-dosage">{levelConfig.summary}</p>
+          </div>
 
           <div
             className={`tv-timer-box ${
@@ -67,50 +79,64 @@ export function TvModeView({
             } ${countdown.finishedFlash ? 'timer-flash' : ''}`}
             aria-live="polite"
           >
-            <div className="tv-timer-header">
-              {countdown.activeKind && (
-                <span
-                  className={`timer-kind-badge ${
-                    countdown.activeKind === 'work' ? 'badge-work' : 'badge-rest'
-                  }`}
-                >
-                  {countdown.activeKind === 'work' ? 'ESERCIZIO' : 'PAUSA'}
+            <div className="tv-timer-top">
+              <div className="tv-timer-header">
+                {countdown.activeKind && (
+                  <span
+                    className={`timer-kind-badge ${
+                      countdown.activeKind === 'work' ? 'badge-work' : 'badge-rest'
+                    }`}
+                  >
+                    {countdown.activeKind === 'work' ? 'ESERCIZIO' : 'PAUSA'}
+                  </span>
+                )}
+                <span className="tv-timer-label">
+                  {countdown.completed
+                    ? 'Timer terminato!'
+                    : countdown.activeLabel ?? `Timer Es. ${exercise.number}`}
                 </span>
-              )}
-              <span className="tv-timer-label">
-                {countdown.activeLabel ?? `Timer esercizio ${exercise.number}`}
-              </span>
+              </div>
+              <div className="tv-timer-value">
+                {countdown.activeLabel
+                  ? formatDuration(countdown.remainingSec)
+                  : formatDuration(levelConfig.workSec ?? levelConfig.restSec)}
+              </div>
             </div>
-            <div className="tv-timer-value">
-              {countdown.activeLabel
-                ? formatDuration(countdown.remainingSec)
-                : formatDuration(exercise.timerPresets[0]?.durationSec ?? 30)}
-            </div>
-            <div className="tv-presets">
-              {exercise.timerPresets.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  className={`btn ${
-                    preset.kind === 'work' ? 'btn-tv-preset-work' : 'btn-tv-preset-rest'
-                  }`}
-                  onClick={() =>
-                    countdown.startPreset(preset.durationSec, preset.label, preset.kind)
-                  }
-                >
-                  {preset.label}
+
+            {countdown.completed ? (
+              <div className="tv-presets">
+                {countdown.activeKind === 'work' ? (
+                  <button type="button" className="btn btn-tv-preset-rest" onClick={onStartRest}>
+                    ▶ Avvia Pausa ({levelConfig.restSec}s)
+                  </button>
+                ) : (
+                  levelConfig.workSec && (
+                    <button type="button" className="btn btn-tv-preset-work" onClick={onStartWork}>
+                      ▶ Ripeti Esercizio ({levelConfig.workSec}s)
+                    </button>
+                  )
+                )}
+                <button type="button" className="btn btn-tv-nav-primary" onClick={onNext}>
+                  {index + 1 < total ? 'Prossimo Esercizio ▶' : 'Completa ✓'}
                 </button>
-              ))}
-              {countdown.activeLabel && (
-                <button
-                  type="button"
-                  className="btn btn-tv-preset"
-                  onClick={countdown.toggle}
-                >
-                  {countdown.running ? 'Pausa' : 'Riprendi'}
+              </div>
+            ) : (
+              <div className="tv-presets">
+                {levelConfig.workSec && (
+                  <button type="button" className="btn btn-tv-preset-work" onClick={onStartWork}>
+                    ▶ Esercizio ({levelConfig.workSec}s)
+                  </button>
+                )}
+                <button type="button" className="btn btn-tv-preset-rest" onClick={onStartRest}>
+                  ⏸ Pausa ({levelConfig.restSec}s)
                 </button>
-              )}
-            </div>
+                {countdown.activeLabel && (
+                  <button type="button" className="btn btn-tv-preset" onClick={countdown.toggle}>
+                    {countdown.running ? 'Ferma' : 'Riprendi'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <ul className="tv-points">
@@ -126,13 +152,13 @@ export function TvModeView({
               disabled={index === 0}
               onClick={onPrev}
             >
-              ◀ Precedente
+              ◀ Prec.
             </button>
             <button type="button" className="btn btn-tv-audio" onClick={onReplayAudio}>
-              {audioPlaying ? '🔊 In riproduzione…' : '🔊 Riascolta'}
+              {audioPlaying ? '🔊 Guida…' : '🔊 Riascolta'}
             </button>
             <button type="button" className="btn btn-tv-nav-primary" onClick={onNext}>
-              {index + 1 < total ? 'Successivo ▶' : 'Termina ✓'}
+              {index + 1 < total ? 'Succ. ▶' : 'Fine ✓'}
             </button>
           </div>
         </div>

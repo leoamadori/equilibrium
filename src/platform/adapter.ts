@@ -2,6 +2,8 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { KeepAwake } from '@capacitor-community/keep-awake';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
+import type { TrainingLevel } from '../types/exercise';
 import {
   DEFAULT_PERSISTED_STATE,
   type AudioMode,
@@ -13,6 +15,8 @@ import { buildPlannedNotifications } from './reminders';
 
 const STORAGE_KEY = 'equilibrium_state_v1';
 const REMINDER_CHANNEL_ID = 'equilibrium-reminders';
+const TIMER_CHANNEL_ID = 'equilibrium-timer-done';
+const TIMER_NOTIFICATION_ID = 99;
 
 export function isNativeAndroid(): boolean {
   return Capacitor.isNativePlatform();
@@ -20,6 +24,10 @@ export function isNativeAndroid(): boolean {
 
 function isValidAudioMode(value: unknown): value is AudioMode {
   return value === 'full' || value === 'short' || value === 'off';
+}
+
+function isValidTrainingLevel(value: unknown): value is TrainingLevel {
+  return value === 'facile' || value === 'allenato';
 }
 
 function isValidSessionRecord(item: unknown): item is SessionRecord {
@@ -83,6 +91,9 @@ export function parseAndValidateState(rawJson: string): PersistedState {
   const audioMode: AudioMode = isValidAudioMode(rawSettings.audioMode)
     ? rawSettings.audioMode
     : DEFAULT_PERSISTED_STATE.settings.audioMode;
+  const trainingLevel: TrainingLevel = isValidTrainingLevel(rawSettings.trainingLevel)
+    ? rawSettings.trainingLevel
+    : DEFAULT_PERSISTED_STATE.settings.trainingLevel;
 
   if (!Array.isArray(obj.sessions)) {
     throw new Error('Elenco sessioni mancante o non valido.');
@@ -92,7 +103,7 @@ export function parseAndValidateState(rawJson: string): PersistedState {
 
   return {
     schemaVersion: 1,
-    settings: { audioMode },
+    settings: { audioMode, trainingLevel },
     sessions,
     reminder,
   };
@@ -213,6 +224,103 @@ export const wakeLockAdapter = {
   },
 };
 
+export const orientationAdapter = {
+  async lockLandscape(): Promise<void> {
+    if (isNativeAndroid()) {
+      try {
+        await ScreenOrientation.lock({ orientation: 'landscape' });
+      } catch {
+        // Ignore
+      }
+      return;
+    }
+    try {
+      const orientation = screen.orientation as ScreenOrientation & {
+        lock?: (type: string) => Promise<void>;
+      };
+      if (orientation?.lock) {
+        await orientation.lock('landscape');
+      }
+    } catch {
+      // Browsers may reject lock outside fullscreen
+    }
+  },
+
+  async unlock(): Promise<void> {
+    if (isNativeAndroid()) {
+      try {
+        await ScreenOrientation.unlock();
+      } catch {
+        // Ignore
+      }
+      return;
+    }
+    try {
+      screen.orientation?.unlock?.();
+    } catch {
+      // Ignore
+    }
+  },
+};
+
+export const timerWakeAdapter = {
+  async scheduleTimerEnd(endAtMs: number, label: string): Promise<void> {
+    if (!isNativeAndroid()) return;
+    try {
+      const perm = await LocalNotifications.checkPermissions();
+      if (perm.display !== 'granted') return;
+
+      await LocalNotifications.createChannel({
+        id: TIMER_CHANNEL_ID,
+        name: 'Fine Timer Esercizio',
+        description: 'Avviso a fine timer durante la sessione',
+        importance: 5,
+        vibration: true,
+      });
+
+      await LocalNotifications.cancel({
+        notifications: [{ id: TIMER_NOTIFICATION_ID }],
+      });
+
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: TIMER_NOTIFICATION_ID,
+            channelId: TIMER_CHANNEL_ID,
+            title: `${label} terminato`,
+            body: 'Tocca per passare al timer o esercizio successivo.',
+            schedule: { at: new Date(endAtMs) },
+          },
+        ],
+      });
+    } catch {
+      // Non-fatal
+    }
+  },
+
+  async cancelTimerEnd(): Promise<void> {
+    if (!isNativeAndroid()) return;
+    try {
+      await LocalNotifications.cancel({
+        notifications: [{ id: TIMER_NOTIFICATION_ID }],
+      });
+    } catch {
+      // Ignore
+    }
+  },
+
+  pulseOnFinish(): void {
+    void wakeLockAdapter.enable();
+    try {
+      if ('vibrate' in navigator) {
+        navigator.vibrate([220, 100, 220]);
+      }
+    } catch {
+      // Ignore
+    }
+  },
+};
+
 export const remindersAdapter = {
   isSupported(): boolean {
     return isNativeAndroid();
@@ -237,10 +345,11 @@ export const remindersAdapter = {
 
     try {
       const pending = await LocalNotifications.getPending();
-      if (pending.notifications.length > 0) {
-        await LocalNotifications.cancel({
-          notifications: pending.notifications.map((n) => ({ id: n.id })),
-        });
+      const weeklyIds = pending.notifications
+        .filter((n) => n.id >= 1 && n.id <= 7)
+        .map((n) => ({ id: n.id }));
+      if (weeklyIds.length > 0) {
+        await LocalNotifications.cancel({ notifications: weeklyIds });
       }
 
       if (!config.enabled || config.daysOfWeek.length === 0) {

@@ -21,6 +21,7 @@ export function App() {
   const {
     state,
     setAudioMode,
+    setTrainingLevel,
     addSession,
     clearSessions,
     updateReminder,
@@ -58,6 +59,8 @@ export function App() {
         {route === 'sessione' && (
           <SessionPage
             defaultAudioMode={state.settings.audioMode}
+            defaultTrainingLevel={state.settings.trainingLevel}
+            onChangeTrainingLevel={setTrainingLevel}
             onSaveSession={addSession}
             onNavigate={navigate}
             onTvModeChange={setTvActive}
@@ -67,8 +70,10 @@ export function App() {
         {route === 'impostazioni' && (
           <SettingsPage
             audioMode={state.settings.audioMode}
+            trainingLevel={state.settings.trainingLevel}
             reminder={state.reminder}
             onChangeAudioMode={setAudioMode}
+            onChangeTrainingLevel={setTrainingLevel}
             onUpdateReminder={updateReminder}
             onExportBackup={exportBackup}
             onImportBackup={importBackup}

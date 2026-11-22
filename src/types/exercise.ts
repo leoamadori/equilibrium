@@ -1,8 +1,11 @@
-export interface ExerciseTimerPreset {
-  id: string;
-  label: string;
-  durationSec: number;
-  kind: 'work' | 'rest';
+export type TrainingLevel = 'facile' | 'allenato';
+
+export interface ExerciseLevelConfig {
+  summary: string;
+  /** Optional isometric / timed hold duration in seconds */
+  workSec?: number;
+  /** Rest duration in seconds between sets */
+  restSec: number;
 }
 
 export interface Exercise {
@@ -23,5 +26,5 @@ export interface Exercise {
   videoPath: string;
   audioFullPath: string;
   audioShortPath: string;
-  timerPresets: ExerciseTimerPreset[];
+  levels: Record<TrainingLevel, ExerciseLevelConfig>;
 }

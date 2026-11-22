@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { beepEngine } from '../services/beepEngine';
+import { timerWakeAdapter } from '../platform/adapter';
 
 export interface StopwatchState {
   elapsedSec: number;
@@ -84,6 +85,7 @@ export interface CountdownState {
   activeLabel: string | null;
   activeKind: TimerKind | null;
   running: boolean;
+  completed: boolean;
   finishedFlash: boolean;
   startPreset: (durationSec: number, label: string, kind: TimerKind) => void;
   toggle: () => void;
@@ -98,98 +100,115 @@ export function useCountdown(): CountdownState {
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
   const [activeKind, setActiveKind] = useState<TimerKind | null>(null);
   const [running, setRunning] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const [finishedFlash, setFinishedFlash] = useState(false);
 
-  const lastTickRef = useRef<number | null>(null);
+  const endAtMsRef = useRef<number | null>(null);
   const lastBeepSecRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!running) {
-      lastTickRef.current = null;
+      endAtMsRef.current = null;
       return;
     }
-    lastTickRef.current = Date.now();
+
     const id = window.setInterval(() => {
-      const now = Date.now();
-      const prev = lastTickRef.current ?? now;
-      const delta = Math.max(0, now - prev);
-      lastTickRef.current = now;
+      const endAt = endAtMsRef.current;
+      if (endAt === null) return;
+      const next = Math.max(0, endAt - Date.now());
+      const nextSec = Math.ceil(next / 1000);
 
-      setRemainingMs((cur) => {
-        const next = Math.max(0, cur - delta);
-        const nextSec = Math.ceil(next / 1000);
+      setRemainingMs(next);
 
-        if (next === 0 && cur > 0) {
-          beepEngine.playComplete();
-          setRunning(false);
-          setFinishedFlash(true);
-          window.setTimeout(() => setFinishedFlash(false), 1800);
-          lastBeepSecRef.current = 0;
-        } else if (nextSec >= 1 && nextSec <= 3 && lastBeepSecRef.current !== nextSec) {
-          lastBeepSecRef.current = nextSec;
-          beepEngine.playTick();
-        }
-        return next;
-      });
+      if (next === 0) {
+        endAtMsRef.current = null;
+        setRunning(false);
+        setCompleted(true);
+        setFinishedFlash(true);
+        beepEngine.playComplete();
+        timerWakeAdapter.pulseOnFinish();
+        void timerWakeAdapter.cancelTimerEnd();
+        window.setTimeout(() => setFinishedFlash(false), 2200);
+        lastBeepSecRef.current = 0;
+      } else if (nextSec >= 1 && nextSec <= 3 && lastBeepSecRef.current !== nextSec) {
+        lastBeepSecRef.current = nextSec;
+        beepEngine.playTick();
+      }
     }, 150);
 
     return () => window.clearInterval(id);
   }, [running]);
 
+  useEffect(() => {
+    return () => {
+      void timerWakeAdapter.cancelTimerEnd();
+    };
+  }, []);
+
   const startPreset = useCallback((durationSec: number, label: string, kind: TimerKind) => {
     beepEngine.unlock();
     const safeSec = Math.max(1, Math.floor(durationSec));
+    const endAt = Date.now() + safeSec * 1000;
+    endAtMsRef.current = endAt;
     setInitialSec(safeSec);
     setRemainingMs(safeSec * 1000);
     setActiveLabel(label);
     setActiveKind(kind);
+    setCompleted(false);
     setFinishedFlash(false);
     lastBeepSecRef.current = null;
-    lastTickRef.current = Date.now();
     setRunning(true);
+    void timerWakeAdapter.scheduleTimerEnd(endAt, label);
   }, []);
 
   const pause = useCallback(() => {
+    if (endAtMsRef.current !== null) {
+      setRemainingMs(Math.max(0, endAtMsRef.current - Date.now()));
+      endAtMsRef.current = null;
+    }
     setRunning(false);
-    lastTickRef.current = null;
+    void timerWakeAdapter.cancelTimerEnd();
   }, []);
 
   const toggle = useCallback(() => {
     beepEngine.unlock();
-    setRunning((prev) => {
-      if (prev) {
-        lastTickRef.current = null;
-        return false;
-      }
-      if (remainingMs <= 0 && initialSec > 0) {
-        setRemainingMs(initialSec * 1000);
-        lastBeepSecRef.current = null;
-      }
-      if (remainingMs > 0 || initialSec > 0) {
-        lastTickRef.current = Date.now();
-        return true;
-      }
-      return false;
-    });
-  }, [initialSec, remainingMs]);
+    if (running) {
+      pause();
+      return;
+    }
+    const baseMs = remainingMs <= 0 && initialSec > 0 ? initialSec * 1000 : remainingMs;
+    if (baseMs > 0) {
+      const endAt = Date.now() + baseMs;
+      endAtMsRef.current = endAt;
+      setRemainingMs(baseMs);
+      setCompleted(false);
+      lastBeepSecRef.current = null;
+      setRunning(true);
+      void timerWakeAdapter.scheduleTimerEnd(endAt, activeLabel ?? 'Timer');
+    }
+  }, [running, pause, remainingMs, initialSec, activeLabel]);
 
   const reset = useCallback(() => {
-    setRunning(false);
-    lastTickRef.current = null;
+    endAtMsRef.current = null;
     lastBeepSecRef.current = null;
+    setRunning(false);
+    setCompleted(false);
     setFinishedFlash(false);
     setRemainingMs(initialSec * 1000);
+    void timerWakeAdapter.cancelTimerEnd();
   }, [initialSec]);
 
   const clear = useCallback(() => {
-    setRunning(false);
-    lastTickRef.current = null;
+    endAtMsRef.current = null;
     lastBeepSecRef.current = null;
+    setRunning(false);
+    setCompleted(false);
     setFinishedFlash(false);
     setInitialSec(0);
     setRemainingMs(0);
     setActiveLabel(null);
     setActiveKind(null);
+    void timerWakeAdapter.cancelTimerEnd();
   }, []);
 
   return {
@@ -198,6 +217,7 @@ export function useCountdown(): CountdownState {
     activeLabel,
     activeKind,
     running,
+    completed,
     finishedFlash,
     startPreset,
     toggle,

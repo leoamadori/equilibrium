@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { TrainingLevel } from '../types/exercise';
 import {
   DEFAULT_PERSISTED_STATE,
   type AudioMode,
@@ -44,6 +45,16 @@ export function useAppState() {
       persist((prev) => ({
         ...prev,
         settings: { ...prev.settings, audioMode },
+      }));
+    },
+    [persist],
+  );
+
+  const setTrainingLevel = useCallback(
+    (trainingLevel: TrainingLevel) => {
+      persist((prev) => ({
+        ...prev,
+        settings: { ...prev.settings, trainingLevel },
       }));
     },
     [persist],
@@ -100,7 +111,7 @@ export function useAppState() {
       } catch (err) {
         return {
           ok: false,
-          error: err instanceof Error ? err.message : 'Errore durante l\'importazione.',
+          error: err instanceof Error ? err.message : "Errore durante l'importazione.",
         };
       }
     },
@@ -111,6 +122,7 @@ export function useAppState() {
     state,
     loaded,
     setAudioMode,
+    setTrainingLevel,
     addSession,
     clearSessions,
     updateReminder,

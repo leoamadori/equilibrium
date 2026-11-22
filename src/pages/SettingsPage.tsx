@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react';
 import { remindersAdapter } from '../platform/adapter';
+import type { TrainingLevel } from '../types/exercise';
 import type { AudioMode, WeeklyReminderConfig } from '../types/storage';
 
 interface SettingsPageProps {
   audioMode: AudioMode;
+  trainingLevel: TrainingLevel;
   reminder: WeeklyReminderConfig;
   onChangeAudioMode: (mode: AudioMode) => void;
+  onChangeTrainingLevel: (level: TrainingLevel) => void;
   onUpdateReminder: (config: WeeklyReminderConfig) => Promise<{ ok: boolean; reason?: string }>;
   onExportBackup: () => void;
   onImportBackup: (rawJson: string) => Promise<{ ok: boolean; error?: string }>;
@@ -24,8 +27,10 @@ const WEEKDAYS: Array<{ iso: number; short: string }> = [
 
 export function SettingsPage({
   audioMode,
+  trainingLevel,
   reminder,
   onChangeAudioMode,
+  onChangeTrainingLevel,
   onUpdateReminder,
   onExportBackup,
   onImportBackup,
@@ -88,6 +93,26 @@ export function SettingsPage({
   return (
     <section className="page settings-page">
       <h1>Impostazioni e Promemoria</h1>
+
+      <div className="card">
+        <h2>Livello sessione predefinito</h2>
+        <p className="muted-text">
+          Imposta in anticipo durata degli esercizi e delle pause (modificabile anche all&apos;avvio
+          di ogni sessione).
+        </p>
+        <div className="segmented">
+          {(['facile', 'allenato'] as TrainingLevel[]).map((level) => (
+            <button
+              key={level}
+              type="button"
+              className={`segmented-btn ${trainingLevel === level ? 'segmented-btn-active' : ''}`}
+              onClick={() => onChangeTrainingLevel(level)}
+            >
+              {level === 'facile' ? 'Facile' : 'Allenato'}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="card">
         <h2>Voce guida allenatore</h2>
